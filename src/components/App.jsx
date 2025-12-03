@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import PhantomIRCClient from '../lib/irc-client';
+import MockIRCClient from '../lib/mock-irc';
 import PhantomAI from '../lib/ai-service';
 
 function App() {
@@ -22,6 +22,11 @@ function App() {
   const [aiKey, setAiKey] = useState('');
   const [summary, setSummary] = useState('');
   const [loadingSummary, setLoadingSummary] = useState(false);
+  const [catchUp, setCatchUp] = useState(null);
+  const [loadingCatchUp, setLoadingCatchUp] = useState(false);
+  const [codeSnippets, setCodeSnippets] = useState([]);
+  const [loadingSnippets, setLoadingSnippets] = useState(false);
+  const [showSnippets, setShowSnippets] = useState(false);
 
   // Refs
   const ircClient = useRef(null);
@@ -44,8 +49,8 @@ function App() {
       return;
     }
 
-    // Initialize IRC client
-    ircClient.current = new PhantomIRCClient();
+    // Initialize IRC client (using mock for demo)
+    ircClient.current = new MockIRCClient();
 
     // Initialize AI service if key provided
     if (aiKey.trim()) {
@@ -155,6 +160,38 @@ function App() {
     const summaryText = await aiService.current.summarizeMessages(lastMessages, currentChannel);
     setSummary(summaryText);
     setLoadingSummary(false);
+  };
+
+  // Get Smart Catch-Up (AI developer feature)
+  const handleSmartCatchUp = async () => {
+    if (!aiEnabled || !aiService.current || !currentChannel) {
+      alert('AI features require an API key. Reconnect with a Claude API key.');
+      return;
+    }
+
+    setLoadingCatchUp(true);
+    const channelMessages = messages[currentChannel] || [];
+    const lastMessages = channelMessages.slice(-100);
+
+    const catchUpData = await aiService.current.smartCatchUp(lastMessages, currentChannel);
+    setCatchUp(catchUpData);
+    setLoadingCatchUp(false);
+  };
+
+  // Extract Code Snippets (AI developer feature)
+  const handleExtractCode = async () => {
+    if (!aiEnabled || !aiService.current || !currentChannel) {
+      alert('AI features require an API key. Reconnect with a Claude API key.');
+      return;
+    }
+
+    setLoadingSnippets(true);
+    const channelMessages = messages[currentChannel] || [];
+
+    const snippets = await aiService.current.extractCodeSnippets(channelMessages);
+    setCodeSnippets(snippets);
+    setShowSnippets(true);
+    setLoadingSnippets(false);
   };
 
   // Connection form
@@ -302,15 +339,31 @@ function App() {
                 </p>
               </div>
 
-              {/* AI Summary button */}
+              {/* AI Feature buttons */}
               {aiEnabled && (
-                <button
-                  onClick={handleGetSummary}
-                  disabled={loadingSummary}
-                  className="bg-phantom-purple hover:bg-phantom-purple-light text-white px-4 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50"
-                >
-                  {loadingSummary ? '🤖 Summarizing...' : '🤖 AI Summary'}
-                </button>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handleSmartCatchUp}
+                    disabled={loadingCatchUp}
+                    className="bg-phantom-purple hover:bg-phantom-purple-light text-white px-3 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {loadingCatchUp ? '⚡ Analyzing...' : '⚡ Catch-Up'}
+                  </button>
+                  <button
+                    onClick={handleExtractCode}
+                    disabled={loadingSnippets}
+                    className="bg-phantom-purple hover:bg-phantom-purple-light text-white px-3 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {loadingSnippets ? '💻 Extracting...' : '💻 Code'}
+                  </button>
+                  <button
+                    onClick={handleGetSummary}
+                    disabled={loadingSummary}
+                    className="bg-phantom-purple hover:bg-phantom-purple-light text-white px-3 py-2 rounded text-sm font-medium transition-colors disabled:opacity-50"
+                  >
+                    {loadingSummary ? '📝 Summarizing...' : '📝 Summary'}
+                  </button>
+                </div>
               )}
             </div>
 
@@ -326,6 +379,83 @@ function App() {
                 >
                   Dismiss
                 </button>
+              </div>
+            )}
+
+            {/* Smart Catch-Up display */}
+            {catchUp && (
+              <div className="bg-purple-900 bg-opacity-30 border-b border-purple-600 px-6 py-3">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-purple-300">⚡ Smart Catch-Up</span>
+                  <button
+                    onClick={() => setCatchUp(null)}
+                    className="text-xs text-gray-400 hover:text-white"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <p className="text-sm text-gray-300 mb-2">{catchUp.summary}</p>
+                {catchUp.topics && catchUp.topics.length > 0 && (
+                  <div className="mb-2">
+                    <span className="text-xs font-semibold text-purple-400">Topics: </span>
+                    <span className="text-xs text-gray-300">{catchUp.topics.join(' • ')}</span>
+                  </div>
+                )}
+                {catchUp.keyDecisions && catchUp.keyDecisions.length > 0 && (
+                  <div className="mb-2">
+                    <span className="text-xs font-semibold text-purple-400">Decisions: </span>
+                    <span className="text-xs text-gray-300">{catchUp.keyDecisions.join(' • ')}</span>
+                  </div>
+                )}
+                <div>
+                  <span className="text-xs font-semibold text-purple-400">Code shared: </span>
+                  <span className="text-xs text-gray-300">{catchUp.codeShared} snippet{catchUp.codeShared !== 1 ? 's' : ''}</span>
+                </div>
+              </div>
+            )}
+
+            {/* Code Snippets display */}
+            {showSnippets && codeSnippets.length > 0 && (
+              <div className="bg-gray-900 border-b border-gray-700 px-6 py-3 max-h-64 overflow-y-auto">
+                <div className="flex items-center justify-between mb-2">
+                  <span className="font-bold text-blue-300">💻 Code Snippets ({codeSnippets.length})</span>
+                  <button
+                    onClick={() => setShowSnippets(false)}
+                    className="text-xs text-gray-400 hover:text-white"
+                  >
+                    Dismiss
+                  </button>
+                </div>
+                <div className="space-y-3">
+                  {codeSnippets.map((snippet, idx) => (
+                    <div key={idx} className="bg-black bg-opacity-40 p-3 rounded border border-gray-700">
+                      <div className="flex items-center justify-between mb-2">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-mono text-blue-400">{snippet.language}</span>
+                          <span className="text-xs text-gray-500">by {snippet.author}</span>
+                        </div>
+                        <span className="text-xs text-gray-500">{snippet.category}</span>
+                      </div>
+                      <p className="text-xs text-gray-300 mb-2">{snippet.context}</p>
+                      <pre className="text-xs text-gray-400 bg-black bg-opacity-50 p-2 rounded overflow-x-auto">
+                        {snippet.code.substring(0, 200)}{snippet.code.length > 200 ? '...' : ''}
+                      </pre>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            {showSnippets && codeSnippets.length === 0 && (
+              <div className="bg-gray-900 border-b border-gray-700 px-6 py-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-sm text-gray-400">💻 No code snippets found in this channel</span>
+                  <button
+                    onClick={() => setShowSnippets(false)}
+                    className="text-xs text-gray-400 hover:text-white"
+                  >
+                    Dismiss
+                  </button>
+                </div>
               </div>
             )}
 
