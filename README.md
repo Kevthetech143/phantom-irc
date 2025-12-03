@@ -4,6 +4,10 @@
 
 Bringing IRC back to life with AI-powered features and Discord-like UX.
 
+**🌐 Live Demo:** https://kevthetech143.github.io/phantom-irc/
+
+**📦 GitHub:** https://github.com/Kevthetech143/phantom-irc
+
 ---
 
 ## 🎯 The Problem
@@ -40,7 +44,7 @@ IRC (Internet Relay Chat) has been around since 1988, but in 2024:
 
 ```bash
 # Clone repo
-git clone https://github.com/your-repo/phantom-irc.git
+git clone https://github.com/Kevthetech143/phantom-irc.git
 cd phantom-irc
 
 # Install dependencies
