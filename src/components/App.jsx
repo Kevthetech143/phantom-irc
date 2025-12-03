@@ -76,6 +76,20 @@ function App() {
       if (joinedNick === nick) {
         setChannels(prev => [...new Set([...prev, channel])]);
         setCurrentChannel(channel);
+
+        // Load message history for this channel
+        const history = ircClient.current.getMessages(channel);
+        if (history && history.length > 0) {
+          setMessages(prev => ({
+            ...prev,
+            [channel]: history.map(msg => ({
+              from: msg.user,
+              to: channel,
+              text: msg.text,
+              time: new Date(msg.timestamp)
+            }))
+          }));
+        }
       }
     });
 
