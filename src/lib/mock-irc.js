@@ -4,8 +4,10 @@
  * Simulates IRC connections and messages for hackathon demonstration
  * when real IRC connections aren't available (browser limitation)
  *
- * Build: 2025-12-03-v2
+ * Build: 2025-12-03-v3-FIXED
  */
+
+const BUILD_ID = "v3-20251203-fixed";
 
 class MockIRCClient {
   constructor() {
@@ -23,6 +25,7 @@ class MockIRCClient {
     };
     this.messageInterval = null;
     this.currentUser = 'PhantomUser';
+    this._buildId = BUILD_ID; // Force bundle hash change
   }
 
   // Simulated channel data
