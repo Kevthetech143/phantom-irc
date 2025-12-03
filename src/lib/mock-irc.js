@@ -3,6 +3,8 @@
  *
  * Simulates IRC connections and messages for hackathon demonstration
  * when real IRC connections aren't available (browser limitation)
+ *
+ * Build: 2025-12-03-v2
  */
 
 class MockIRCClient {
