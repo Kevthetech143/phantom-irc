@@ -20,6 +20,7 @@ function App() {
   // AI state
   const [aiEnabled, setAiEnabled] = useState(false);
   const [aiKey, setAiKey] = useState('');
+  const [aiProviderInfo, setAiProviderInfo] = useState(null);
   const [summary, setSummary] = useState('');
   const [loadingSummary, setLoadingSummary] = useState(false);
   const [catchUp, setCatchUp] = useState(null);
@@ -55,7 +56,9 @@ function App() {
     // Initialize AI service if key provided
     if (aiKey.trim()) {
       aiService.current = new PhantomAI(aiKey.trim());
-      setAiEnabled(true);
+      const providerInfo = aiService.current.getProviderInfo();
+      setAiProviderInfo(providerInfo);
+      setAiEnabled(providerInfo.enabled);
     }
 
     // Setup event handlers
@@ -249,17 +252,17 @@ function App() {
 
             <div>
               <label className="block text-sm font-medium text-gray-300 mb-2">
-                Claude API Key (Optional - for AI features)
+                AI API Key (Optional - for AI features)
               </label>
               <input
                 type="password"
                 value={aiKey}
                 onChange={(e) => setAiKey(e.target.value)}
                 className="w-full px-4 py-2 bg-phantom-gray text-white rounded border border-gray-600 focus:border-phantom-purple focus:outline-none"
-                placeholder="sk-ant-..."
+                placeholder="sk-ant-... or sk-proj-..."
               />
               <p className="text-xs text-gray-500 mt-1">
-                Leave blank to disable AI spam filtering and summaries
+                Supports <span className="text-orange-400">Anthropic (Claude)</span> and <span className="text-green-400">OpenAI (GPT)</span> keys
               </p>
             </div>
 
@@ -288,6 +291,14 @@ function App() {
         <div className="p-4 border-b border-phantom-gray">
           <h2 className="text-xl font-bold text-phantom-purple">👻 Phantom IRC</h2>
           <p className="text-xs text-gray-400 mt-1">Connected as {nick}</p>
+          {aiProviderInfo && aiProviderInfo.enabled && (
+            <p className="text-xs mt-1" style={{ color: aiProviderInfo.color }}>
+              {aiProviderInfo.icon} {aiProviderInfo.name}
+            </p>
+          )}
+          {!aiEnabled && (
+            <p className="text-xs text-gray-500 mt-1">AI features disabled</p>
+          )}
         </div>
 
         {/* Channel list */}

@@ -1,14 +1,31 @@
-import Anthropic from '@anthropic-ai/sdk';
-
 /**
- * Phantom AI Service - Claude API integration
- * Provides spam filtering and message summarization
+ * Phantom AI Service - Multi-Provider AI Integration
+ * Supports: Anthropic (Claude), OpenAI (GPT), and more
+ *
+ * Build: v5-multi-provider
  */
+
+import { createProvider, detectProvider, getProviderInfo } from './ai-providers.js';
+
 class PhantomAI {
   constructor(apiKey) {
     this.apiKey = apiKey;
-    this.client = apiKey ? new Anthropic({ apiKey, dangerouslyAllowBrowser: true }) : null;
-    this.enabled = !!apiKey;
+    this.providerType = detectProvider(apiKey);
+    this.provider = createProvider(apiKey);
+    this.enabled = !!this.provider;
+    this.providerInfo = getProviderInfo(this.providerType);
+  }
+
+  /**
+   * Get provider information for UI display
+   * @returns {Object} { name, icon, color, type }
+   */
+  getProviderInfo() {
+    return {
+      ...this.providerInfo,
+      type: this.providerType,
+      enabled: this.enabled
+    };
   }
 
   /**
@@ -23,21 +40,14 @@ class PhantomAI {
     }
 
     try {
-      const response = await this.client.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 100,
-        messages: [{
-          role: 'user',
-          content: `Analyze if this IRC message is spam. Reply with ONLY "SPAM" or "LEGITIMATE" followed by confidence (0-100) and reason.
+      const prompt = `Analyze if this IRC message is spam. Reply with ONLY "SPAM" or "LEGITIMATE" followed by confidence (0-100) and reason.
 
 Channel: ${channel}
 Message: "${message}"
 
-Format: [SPAM/LEGITIMATE]|[0-100]|[reason]`
-        }]
-      });
+Format: [SPAM/LEGITIMATE]|[0-100]|[reason]`;
 
-      const result = response.content[0].text.trim();
+      const result = await this.provider.chat(prompt, { maxTokens: 100 });
       const [classification, confidence, reason] = result.split('|').map(s => s.trim());
 
       return {
@@ -67,25 +77,17 @@ Format: [SPAM/LEGITIMATE]|[0-100]|[reason]`
     }
 
     try {
-      // Format messages for Claude
       const messageText = messages.map(m =>
         `[${m.time.toLocaleTimeString()}] <${m.from}> ${m.message}`
       ).join('\n');
 
-      const response = await this.client.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: `Summarize this IRC conversation in ${channel}. Focus on main topics, decisions, and important links. Be concise (2-3 sentences max).
+      const prompt = `Summarize this IRC conversation in ${channel}. Focus on main topics, decisions, and important links. Be concise (2-3 sentences max).
 
 ${messageText}
 
-Summary:`
-        }]
-      });
+Summary:`;
 
-      return response.content[0].text.trim();
+      return await this.provider.chat(prompt, { maxTokens: 300 });
     } catch (error) {
       console.error('AI summarization failed:', error);
       return 'Failed to generate summary. AI service error.';
@@ -109,20 +111,15 @@ Summary:`
         return { priority: 'high', reason: 'Direct mention' };
       }
 
-      const response = await this.client.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 50,
-        messages: [{
-          role: 'user',
-          content: `Rate notification priority for this IRC message. Reply ONLY with: HIGH, MEDIUM, or LOW
+      const prompt = `Rate notification priority for this IRC message. Reply ONLY with: HIGH, MEDIUM, or LOW
 
 Message: "${message}"
 
-Priority:`
-        }]
-      });
+Priority:`;
 
-      const priority = response.content[0].text.trim().toLowerCase();
+      const result = await this.provider.chat(prompt, { maxTokens: 50 });
+      const priority = result.toLowerCase();
+
       return {
         priority: ['high', 'medium', 'low'].includes(priority) ? priority : 'medium',
         reason: 'AI analysis'
@@ -135,7 +132,6 @@ Priority:`
 
   /**
    * Smart Catch-Up: Analyze messages and extract key topics/discussions
-   * Perfect for AI devs who context-switch constantly
    * @param {Array} messages - Array of message objects
    * @param {string} channel - Channel name
    * @returns {Promise<Object>} { topics: Array, keyDecisions: Array, codeShared: number }
@@ -150,17 +146,11 @@ Priority:`
     }
 
     try {
-      // Format messages for Claude
       const messageText = messages.map(m =>
         `[${m.time.toLocaleTimeString()}] <${m.from}> ${m.message}`
       ).join('\n');
 
-      const response = await this.client.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 500,
-        messages: [{
-          role: 'user',
-          content: `Analyze this IRC conversation for an AI developer who was away. Extract:
+      const prompt = `Analyze this IRC conversation for an AI developer who was away. Extract:
 1. Main topics discussed (max 3)
 2. Key decisions or conclusions (max 3)
 3. Number of code snippets shared
@@ -171,11 +161,9 @@ DECISIONS: decision1 | decision2 | decision3
 CODE_SNIPPETS: <number>
 SUMMARY: <2 sentence overview>
 
-${messageText}`
-        }]
-      });
+${messageText}`;
 
-      const result = response.content[0].text.trim();
+      const result = await this.provider.chat(prompt, { maxTokens: 500 });
       const topics = result.match(/TOPICS: (.*)/)?.[1]?.split('|').map(s => s.trim()).filter(Boolean) || [];
       const decisions = result.match(/DECISIONS: (.*)/)?.[1]?.split('|').map(s => s.trim()).filter(Boolean) || [];
       const codeShared = parseInt(result.match(/CODE_SNIPPETS: (\d+)/)?.[1] || '0');
@@ -190,7 +178,6 @@ ${messageText}`
 
   /**
    * Extract and analyze code snippets from messages
-   * Detects code blocks, identifies language, and extracts context
    * @param {Array} messages - Array of message objects
    * @returns {Promise<Array>} Array of { code, language, author, context, timestamp }
    */
@@ -201,15 +188,7 @@ ${messageText}`
 
     const snippets = [];
 
-    // Simple code detection (lines starting with spaces/tabs or containing common code patterns)
-    const codePatterns = [
-      /```(\w+)?\n([\s\S]+?)```/g,  // Markdown code blocks
-      /`([^`]+)`/g,                  // Inline code
-      /^[\s]{2,}[^\s]/m              // Indented code
-    ];
-
     for (const msg of messages) {
-      // Check for code blocks
       const codeBlockMatches = [...msg.message.matchAll(/```(\w+)?\n([\s\S]+?)```/g)];
 
       for (const match of codeBlockMatches) {
@@ -217,23 +196,15 @@ ${messageText}`
         const code = match[2].trim();
 
         try {
-          // Ask Claude to analyze the code snippet
-          const response = await this.client.messages.create({
-            model: 'claude-3-haiku-20240307',
-            max_tokens: 150,
-            messages: [{
-              role: 'user',
-              content: `Analyze this code snippet. Reply with ONLY:
+          const prompt = `Analyze this code snippet. Reply with ONLY:
 LANGUAGE: <language>
 PURPOSE: <one sentence what it does>
 CATEGORY: <type like "bug-fix", "example", "utility", "config">
 
 Code:
-${code}`
-            }]
-          });
+${code}`;
 
-          const analysis = response.content[0].text.trim();
+          const analysis = await this.provider.chat(prompt, { maxTokens: 150 });
           const detectedLang = analysis.match(/LANGUAGE: (.*)/)?.[1]?.trim() || language;
           const purpose = analysis.match(/PURPOSE: (.*)/)?.[1]?.trim() || 'Code snippet';
           const category = analysis.match(/CATEGORY: (.*)/)?.[1]?.trim() || 'general';
@@ -249,7 +220,6 @@ ${code}`
           });
         } catch (error) {
           console.error('Code analysis failed:', error);
-          // Add without analysis
           snippets.push({
             code,
             language,
@@ -268,7 +238,6 @@ ${code}`
 
   /**
    * Answer Bot Memory: Check if this question was answered before
-   * Helps AI devs avoid repeating themselves
    * @param {string} question - The question being asked
    * @param {Array} pastAnswers - Array of { question, answer, author, timestamp }
    * @returns {Promise<Object>} { foundAnswer: boolean, answer: string, similarity: number }
@@ -279,17 +248,11 @@ ${code}`
     }
 
     try {
-      // Format past Q&A pairs
       const qaText = pastAnswers.slice(-20).map((qa, idx) =>
         `Q${idx}: ${qa.question}\nA${idx}: ${qa.answer}\n---`
       ).join('\n');
 
-      const response = await this.client.messages.create({
-        model: 'claude-3-haiku-20240307',
-        max_tokens: 300,
-        messages: [{
-          role: 'user',
-          content: `Check if this new question was already answered before. Reply with:
+      const prompt = `Check if this new question was already answered before. Reply with:
 FOUND: YES or NO
 MATCH_ID: Q<number> (if YES)
 SIMILARITY: 0-100 (how similar)
@@ -298,11 +261,9 @@ SUGGESTED_ANSWER: <the previous answer if FOUND=YES, otherwise "none">
 New Question: "${question}"
 
 Past Q&A:
-${qaText}`
-        }]
-      });
+${qaText}`;
 
-      const result = response.content[0].text.trim();
+      const result = await this.provider.chat(prompt, { maxTokens: 300 });
       const found = result.match(/FOUND: (YES|NO)/)?.[1] === 'YES';
       const matchId = result.match(/MATCH_ID: Q(\d+)/)?.[1];
       const similarity = parseInt(result.match(/SIMILARITY: (\d+)/)?.[1] || '0');
