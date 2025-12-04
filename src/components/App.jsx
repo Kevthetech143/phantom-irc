@@ -259,10 +259,10 @@ function App() {
                 value={aiKey}
                 onChange={(e) => setAiKey(e.target.value)}
                 className="w-full px-4 py-2 bg-phantom-gray text-white rounded border border-gray-600 focus:border-phantom-purple focus:outline-none"
-                placeholder="sk-ant-... or sk-proj-..."
+                placeholder="Any AI API key..."
               />
               <p className="text-xs text-gray-500 mt-1">
-                Supports <span className="text-orange-400">Anthropic (Claude)</span> and <span className="text-green-400">OpenAI (GPT)</span> keys
+                Supports <span className="text-orange-400">Claude</span>, <span className="text-green-400">GPT</span>, <span className="text-blue-400">Gemini</span>, <span className="text-orange-500">Llama</span>, <span className="text-red-400">Mistral</span>
               </p>
             </div>
 

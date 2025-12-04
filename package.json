@@ -16,9 +16,12 @@
   "type": "module",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.71.0",
+    "@google/generative-ai": "^0.24.1",
+    "@mistralai/mistralai": "^1.10.0",
     "@tailwindcss/postcss": "^4.1.17",
     "@vitejs/plugin-react": "^5.1.1",
     "autoprefixer": "^10.4.22",
+    "groq-sdk": "^0.37.0",
     "irc-framework": "^4.14.0",
     "openai": "^6.9.1",
     "postcss": "^8.5.6",
