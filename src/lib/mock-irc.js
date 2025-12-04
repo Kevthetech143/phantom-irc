@@ -4,10 +4,10 @@
  * Simulates IRC connections and messages for hackathon demonstration
  * when real IRC connections aren't available (browser limitation)
  *
- * Build: 2025-12-03-v3-FIXED
+ * Build: 2025-12-03-v4-MESSAGES-WORKING
  */
 
-const BUILD_ID = "v3-20251203-fixed";
+const BUILD_ID = "v4-20251203-messages-working";
 
 class MockIRCClient {
   constructor() {
@@ -269,8 +269,8 @@ class MockIRCClient {
     // Trigger message callback
     if (this.callbacks.onMessage) {
       this.callbacks.onMessage({
-        nick: this.currentUser,
-        target: channel,
+        from: this.currentUser,
+        to: channel,
         message: text,
         time: new Date()
       });
@@ -293,8 +293,8 @@ class MockIRCClient {
 
       if (this.callbacks.onMessage) {
         this.callbacks.onMessage({
-          nick: reply.user,
-          target: channel,
+          from: reply.user,
+          to: channel,
           message: reply.text,
           time: new Date()
         });
@@ -316,8 +316,8 @@ class MockIRCClient {
         this.messages[channel].push(randomMsg);
 
         this.callbacks.onMessage({
-          nick: randomMsg.user,
-          target: channel,
+          from: randomMsg.user,
+          to: channel,
           message: randomMsg.text,
           time: new Date(randomMsg.timestamp)
         });

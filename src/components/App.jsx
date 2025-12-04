@@ -85,7 +85,7 @@ function App() {
             [channel]: history.map(msg => ({
               from: msg.user,
               to: channel,
-              text: msg.text,
+              message: msg.text,
               time: new Date(msg.timestamp)
             }))
           }));
