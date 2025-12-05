@@ -276,7 +276,6 @@ function App() {
 
           <div className="mt-6 text-center text-xs text-gray-500">
             <p>Kiroween 2024 - Resurrection Category</p>
-            <p className="mt-1">Built with 💜 by ALPHA + BETA</p>
           </div>
         </div>
       </div>
